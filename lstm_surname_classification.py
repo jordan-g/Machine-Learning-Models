@@ -133,7 +133,7 @@ class RNN(nn.Module):
 
 # set hidden layer size
 hidden_size_1 = 128
-hidden_size_2 = 32
+hidden_size_2 = 64
 
 # create RNN
 rnn = RNN(n_letters, hidden_size_1, hidden_size_2, n_categories)
@@ -185,20 +185,73 @@ def test():
         lines = test_category_lines[category]
 
         for line in lines:
-            output = evaluate(line_to_tensor(line))
+            with torch.no_grad():
+                output = evaluate(line_to_tensor(line))
 
-            n_test_examples += 1
+                n_test_examples += 1
 
-            guess, guess_i = output_to_category(output)
-            if guess == category:
-                n_correct += 1
+                guess, guess_i = output_to_category(output)
+                if guess == category:
+                    n_correct += 1
 
     test_error = 100*(1 - n_correct/n_test_examples)
 
     return test_error
 
+# plot a confusion matrix for the test data
+def plot_confusion_matrix():
+    # keep track of correct guesses in a confusion matrix
+    confusion = torch.zeros(n_categories, n_categories)
+
+    for category in test_category_lines.keys():
+        lines = test_category_lines[category]
+
+        for line in lines:
+            with torch.no_grad():
+                output                          = evaluate(line_to_tensor(line))
+                guess, guess_i                  = output_to_category(output)
+                category_i                      = all_categories.index(category)
+                confusion[category_i][guess_i] += 1
+
+    # normalize by dividing every row by its sum
+    for i in range(n_categories):
+        confusion[i] = confusion[i] / confusion[i].sum()
+
+    # set up plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(confusion.numpy())
+    fig.colorbar(cax)
+
+    # set up axes
+    ax.set_xticklabels([''] + all_categories, rotation=90)
+    ax.set_yticklabels([''] + all_categories)
+
+    # force a label at every tick
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+    plt.tight_layout()
+    plt.show()
+
+# print the top n_predictions categories predicted by the RNN given an input line
+def predict(input_line, n_predictions=3):
+    print('\n> %s' % input_line)
+    with torch.no_grad():
+        output = evaluate(line_to_tensor(input_line))
+
+        # Get top N categories
+        topv, topi = output.topk(n_predictions, 1, True)
+        predictions = []
+
+        for i in range(n_predictions):
+            value = topv[0][i].item()
+            category_index = topi[0][i].item()
+            print('(%.2f) %s' % (value, all_categories[category_index]))
+            predictions.append([value, all_categories[category_index]])
+
 # set number of training examples to show
-n_iters = 100000
+n_iters = 200000
 
 # set printing and plotting parameters
 print_every = 5000
@@ -207,6 +260,9 @@ plot_every  = 1000
 # keep track of losses for plotting
 current_loss = 0
 all_losses = []
+
+# plot initial confusion matrix
+plot_confusion_matrix()
 
 # record start time
 start_time = time.time()
@@ -240,53 +296,8 @@ plt.figure()
 plt.plot(all_losses)
 plt.show()
 
-# keep track of correct guesses in a confusion matrix
-confusion   = torch.zeros(n_categories, n_categories)
-n_confusion = 10000
-
-# go through a bunch of examples and record which are correctly guessed
-for i in range(n_confusion):
-    category, line, category_tensor, line_tensor = random_training_example()
-    output                          = evaluate(line_tensor)
-    guess, guess_i                  = output_to_category(output)
-    category_i                      = all_categories.index(category)
-    confusion[category_i][guess_i] += 1
-
-# normalize by dividing every row by its sum
-for i in range(n_categories):
-    confusion[i] = confusion[i] / confusion[i].sum()
-
-# set up plot
-fig = plt.figure()
-ax = fig.add_subplot(111)
-cax = ax.matshow(confusion.numpy())
-fig.colorbar(cax)
-
-# set up axes
-ax.set_xticklabels([''] + all_categories, rotation=90)
-ax.set_yticklabels([''] + all_categories)
-
-# force a label at every tick
-ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
-
-plt.show()
-
-# print the top n_predictions categories predicted by the RNN given an input line
-def predict(input_line, n_predictions=3):
-    print('\n> %s' % input_line)
-    with torch.no_grad():
-        output = evaluate(line_to_tensor(input_line))
-
-        # Get top N categories
-        topv, topi = output.topk(n_predictions, 1, True)
-        predictions = []
-
-        for i in range(n_predictions):
-            value = topv[0][i].item()
-            category_index = topi[0][i].item()
-            print('(%.2f) %s' % (value, all_categories[category_index]))
-            predictions.append([value, all_categories[category_index]])
+# plot final confusion matrix
+plot_confusion_matrix()
 
 predict('Dostoevsky')
 predict('Jackson')
