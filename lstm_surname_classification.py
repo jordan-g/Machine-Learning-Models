@@ -107,7 +107,8 @@ class RNN(nn.Module):
         self.lstm_2 = torch.nn.LSTM(hidden_size_1, hidden_size_2)
 
         # create output layer
-        self.output = nn.Linear(hidden_size_2, output_size)
+        self.output  = nn.Linear(hidden_size_2, output_size)
+        self.dropout = nn.Dropout(0.1)
         self.softmax = nn.LogSoftmax(dim=1)
 
         # initialize hidden states
@@ -120,6 +121,7 @@ class RNN(nn.Module):
 
         # compute output
         output = self.output(hidden_2)
+        output = self.dropout(output)
         output = self.softmax(output.view(1, output.size()[-1]))
 
         return output
@@ -131,7 +133,7 @@ class RNN(nn.Module):
 
 # set hidden layer size
 hidden_size_1 = 128
-hidden_size_2 = 64
+hidden_size_2 = 32
 
 # create RNN
 rnn = RNN(n_letters, hidden_size_1, hidden_size_2, n_categories)
@@ -196,7 +198,7 @@ def test():
     return test_error
 
 # set number of training examples to show
-n_iters = 1000000
+n_iters = 100000
 
 # set printing and plotting parameters
 print_every = 5000
@@ -231,7 +233,7 @@ for iter in range(1, n_iters + 1):
         guess, guess_i = output_to_category(output)
         correct = '✓' if guess == category else '✗ (%s)' % category
 
-        print("Ex. {0:>10} ({1}%). Time elapsed: {2:>7}. Loss: {3:.4f}. Test error: {4:.2f}%. {5} / {6} {7}".format(iter, int(iter/n_iters*100), time_since(start_time), all_losses[-1], test_error, line, guess, correct))
+        print("Ex. {0:>10} ({1:>3}%). Time elapsed: {2:>7}. Loss: {3:.4f}. Test error: {4:.2f}%. {5} / {6} {7}".format(iter, int(iter/n_iters*100), time_since(start_time), all_losses[-1], test_error, line, guess, correct))
 
 # plot loss
 plt.figure()
